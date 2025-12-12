@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { machinesAPI, authAPI } from "../services/api";
+import machinesService from "../services/machinesService";
+import { useNavigate } from 'react-router-dom';
 import MachineDetail from "./MachineDetail";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -9,10 +10,10 @@ export default function Dashboard() {
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [user, setUser] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadMachines();
-    setUser(authAPI.getCurrentUser());
 
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
@@ -20,12 +21,21 @@ export default function Dashboard() {
       setLastUpdate(new Date());
     }, 30000);
 
-    return () => clearInterval(interval);
+    const onUpdate = () => {
+      loadMachines();
+      setLastUpdate(new Date());
+    };
+    window.addEventListener('machinesUpdated', onUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('machinesUpdated', onUpdate);
+    };
   }, []);
 
   const loadMachines = async () => {
     try {
-      const response = await machinesAPI.getAll();
+      const response = await machinesService.getAll();
       setMachines(response.data.data);
     } catch (error) {
       console.error("Failed to load machines:", error);
@@ -33,11 +43,6 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogout = () => {
-    authAPI.logout();
-    window.location.reload();
   };
 
   const getStatusColor = (status) => {
@@ -81,17 +86,6 @@ export default function Dashboard() {
                 Last updated: {lastUpdate.toLocaleTimeString()}
               </p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                Welcome, {user?.username} ({user?.role})
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
-              >
-                Logout
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -107,7 +101,7 @@ export default function Dashboard() {
               <div
                 key={machine.id}
                 className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => setSelectedMachine(machine.id)}
+                onClick={() => navigate(`/machines/${machine.id}`)}
               >
                 <div className="flex justify-between items-start mb-4">
                   <div>
@@ -139,7 +133,7 @@ export default function Dashboard() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Status:</span>
                     <span className="text-gray-900 capitalize">
-                      {machine.status}
+                      {getComputedStatus(machine)}
                     </span>
                   </div>
                 </div>
@@ -203,13 +197,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Machine Detail Modal */}
-      {selectedMachine && (
-        <MachineDetail
-          machineId={selectedMachine}
-          onClose={() => setSelectedMachine(null)}
-        />
-      )}
+      {/* Note: machine details are handled via route /machines/:id */}
     </div>
   );
 }
