@@ -36,10 +36,12 @@ The system consists of the following microservices:
    ```bash
    brew install mosquitto
    ```
-3. From repo root run:
+3. From repo root run (all services):
    ```bash
    docker compose up --build
    ```
+
+If you prefer to run services individually during development, see the "Development" section below.
 
 ## Services
 
@@ -98,6 +100,14 @@ npm install
 npm run dev
 ```
 
+Notes:
+- The frontend is a Vite + React SPA. It serves at `http://localhost:5173` by default.
+- If another process is using port 5173, Vite will choose an alternate port (check the terminal output).
+- The app uses a small demo auth flow: logging in stores `auth_token` and `auth_user` in `localStorage` (see `frontend/src/components/Login.jsx`).
+- Sample machines and telemetry simulation live in `frontend/src/services/machinesService.js` (use the "Start Simulation" button in the NavBar to populate the dashboard with fake telemetry).
+- To create a sample machine via the UI use `Add Machine` (route `/machines/new`).
+- Environment variable: you can set `VITE_BACKEND_URL` to point the frontend to a backend other than `http://localhost:3000`.
+
 ### ML Service
 ```bash
 cd ml-service
@@ -111,6 +121,41 @@ With mosquitto client installed:
 ```bash
 mosquitto_pub -h localhost -t "agro/1/telemetry" -m '{"metric": "vibration", "value": 85.2}'
 ```
+
+If the backend is configured to subscribe to `agro/+/telemetry`, published messages will be ingested and may show up in the dashboard when the ingestion pipeline is wired to persist or forward readings to the frontend.
+
+## Implementation notes (for contributors / noobs)
+
+- Frontend structure:
+   - `frontend/src/main.jsx` — React entry point (mounts the app).
+   - `frontend/src/App.jsx` — Router setup and high-level layout (NavBar + Routes).
+   - `frontend/src/components/` — UI components (Dashboard, MachineDetail, Login, NavBar, MachineForm, ProtectedRoute).
+   - `frontend/src/services/api.js` — Axios wrappers for `machinesAPI` and `authAPI`.
+   - `frontend/src/services/machinesService.js` — local sample data, save/load, and simulator functions.
+
+- Backend structure:
+   - `backend/src/routes.js` — Express routes (auth and API endpoints).
+   - `backend/src/middleware/auth.js` — authentication helpers used by routes.
+
+- ML service:
+   - `ml-service/app.py` — small FastAPI/Flask app placeholder for predictive endpoints. See `ml-service/test_ml.py` for a simple test example.
+
+## Common troubleshooting
+
+- If you see import errors in the frontend inside Docker (e.g. missing `react-router-dom`), ensure you rebuilt the frontend image after changing `package.json` and that `.dockerignore` does not copy the host `node_modules` into the container. Rebuild with:
+   ```bash
+   docker compose build --no-cache frontend
+   docker compose up -d frontend
+   ```
+- If ports conflict between host dev server and container, stop the container dev server or run the host dev server on a different port.
+
+## Next steps and ideas
+
+- Replace demo auth with JWT issued by the backend and store it securely (cookies or secure localStorage with expiry).
+- Implement persistent machine CRUD endpoints in the backend that persist to Postgres and use real MQTT ingestion for telemetry.
+- Add automated tests for frontend components and end-to-end (Cypress) tests for user flows.
+
+If you'd like, I can add a short `CONTRIBUTING.md` with local dev steps and common troubleshooting commands.
 
 ## Future Enhancements
 
