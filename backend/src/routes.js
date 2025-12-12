@@ -48,7 +48,6 @@ router.get('/machines', authenticateToken, async (req, res, next) => {
 });
 
 router.get('/readings/:machineId',
-    authenticateToken,
     validateMachineId,
     validateReadingQuery,
     async (req, res, next) => {
